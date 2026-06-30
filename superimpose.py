@@ -128,49 +128,8 @@ def _atom_site_rows(cif_path):
     return cols, rows
 
 
-def longest_chain_ca(pdb_id):
-    """Extract the longest protein chain's Cα atoms and write a CA-only PDB.
-
-    The SLC transporter is essentially always the longest polymer chain in the
-    deposition (longer than the Fabs / nanobodies / fiducials used to enable
-    cryo-EM), so the longest-chain heuristic selects it without needing the
-    entity->chain mapping. Returns (ca_pdb_path, n_residues) or (None, 0).
-    """
-    out = os.path.join(CA_CACHE, f"{pdb_id.upper()}_ca.pdb")
-    if os.path.exists(out) and os.path.getsize(out) > 0:
-        with open(out) as fh:
-            n = sum(1 for L in fh if L.startswith("ATOM"))
-        return out, n
-
-    cif = fetch_cif(pdb_id)
-    if cif is None:
-        return None, 0
-    try:
-        cols, rows = _atom_site_rows(cif)
-    except Exception as e:
-        print(f"    [parse] {pdb_id}: {e}")
-        return None, 0
-    need = ("group_PDB", "label_atom_id", "auth_asym_id", "label_comp_id",
-            "auth_seq_id", "Cartn_x", "Cartn_y", "Cartn_z")
-    if not all(k in cols for k in need):
-        print(f"    [parse] {pdb_id}: missing _atom_site columns")
-        return None, 0
-
-    def g(r, k):
-        return r[cols[k]]
-
-    chains = defaultdict(list)
-    for r in rows:
-        if g(r, "group_PDB") != "ATOM":          # polymer only, skip HETATM
-            continue
-        if g(r, "label_atom_id").strip('"') != "CA":
-            continue
-        chains[g(r, "auth_asym_id")].append(r)
-    if not chains:
-        return None, 0
-
-    best = max(chains, key=lambda c: len(chains[c]))
-    recs = chains[best]
+def _write_ca_pdb(recs, g, out):
+    """Write a CA-only PDB from a chain's _atom_site rows; `g` reads a column."""
     with open(out, "w") as o:
         for i, r in enumerate(recs, 1):
             try:
@@ -186,7 +145,69 @@ def longest_chain_ca(pdb_id):
             o.write(f"ATOM  {i:5d}  CA  {resn:>3} A{seq:4d}    "
                     f"{x:8.3f}{y:8.3f}{z:8.3f}  1.00  0.00           C\n")
         o.write("END\n")
-    return out, len(recs)
+
+
+def chain_ca_files(pdb_id, min_len=120):
+    """Extract every protein chain with >= `min_len` Cα as its own CA-only PDB.
+
+    Returns a list of (chain_id, ca_pdb_path, n_residues) sorted longest-first.
+    The longest chain is usually the transporter, but in heteromers it may not be
+    (e.g. the SLC3A2/4F2hc heavy chain is longer than its SLC7 transporter partner),
+    so the caller tries the longest chain first and falls back to the others to find
+    the chain that actually carries a transporter fold. If every chain is shorter
+    than `min_len` (e.g. an isolated resolved domain), the single longest is returned
+    so the entry is still scored.
+    """
+    cif = fetch_cif(pdb_id)
+    if cif is None:
+        return []
+    try:
+        cols, rows = _atom_site_rows(cif)
+    except Exception as e:
+        print(f"    [parse] {pdb_id}: {e}")
+        return []
+    need = ("group_PDB", "label_atom_id", "auth_asym_id", "label_comp_id",
+            "auth_seq_id", "Cartn_x", "Cartn_y", "Cartn_z")
+    if not all(k in cols for k in need):
+        print(f"    [parse] {pdb_id}: missing _atom_site columns")
+        return []
+
+    def g(r, k):
+        return r[cols[k]]
+
+    chains = defaultdict(list)
+    for r in rows:
+        if g(r, "group_PDB") != "ATOM":          # polymer only, skip HETATM
+            continue
+        if g(r, "label_atom_id").strip('"') != "CA":
+            continue
+        chains[g(r, "auth_asym_id")].append(r)
+    if not chains:
+        return []
+
+    ordered = sorted(chains, key=lambda c: len(chains[c]), reverse=True)
+    out = []
+    for ch in ordered:
+        if len(chains[ch]) < min_len:
+            break                                 # ordered desc, so the rest are smaller
+        p = os.path.join(CA_CACHE, f"{pdb_id.upper()}_{ch}_ca.pdb")
+        if not (os.path.exists(p) and os.path.getsize(p) > 0):
+            _write_ca_pdb(chains[ch], g, p)
+        out.append((ch, p, len(chains[ch])))
+    if not out:                                   # all chains below min_len -> keep longest
+        ch = ordered[0]
+        p = os.path.join(CA_CACHE, f"{pdb_id.upper()}_{ch}_ca.pdb")
+        if not (os.path.exists(p) and os.path.getsize(p) > 0):
+            _write_ca_pdb(chains[ch], g, p)
+        out.append((ch, p, len(chains[ch])))
+    return out
+
+
+def longest_chain_ca(pdb_id):
+    """Longest protein chain only, as (ca_pdb_path, n_residues) — used for the
+    single-chain fold reference structures."""
+    cs = chain_ca_files(pdb_id, min_len=1)
+    return (cs[0][1], cs[0][2]) if cs else (None, 0)
 
 
 # ── US-align ──────────────────────────────────────────────────────────────────
@@ -249,25 +270,38 @@ def main():
     print(f"\nClassifying {len(pdb_ids)} structures...\n")
     rows, wide_rows = [], []
     for k, pdb in enumerate(pdb_ids, 1):
-        mob, n = longest_chain_ca(pdb)
-        if mob is None:
+        chains = chain_ca_files(pdb)
+        if not chains:
             print(f"  [{k}/{len(pdb_ids)}] {pdb}: could not load — skipped")
             continue
 
-        scores = {}
-        best_fold, best_tm, best_rmsd, best_aln = None, -1.0, None, None
-        for fold, (ref_pdb, ref_path) in ref_ca.items():
-            tm, rmsd, aln = usalign(mob, ref_path)
-            if tm is None:
+        # Try chains longest-first and keep the best (chain, reference) match,
+        # stopping as soon as a chain confidently matches a fold. This lets a
+        # heteromer fall through a non-transporter longest chain (e.g. the
+        # SLC3A2/4F2hc heavy chain) to the chain that actually carries the fold
+        # (its SLC7 light-chain partner).
+        best = None   # (tm, rmsd, aln, fold, chain_id, chain_len, scores)
+        for chain_id, ca_path, clen in chains:
+            scores, cb = {}, None        # cb = best (tm, rmsd, aln, fold) for this chain
+            for fold, (ref_pdb, ref_path) in ref_ca.items():
+                tm, rmsd, aln = usalign(ca_path, ref_path)
+                if tm is None:
+                    continue
+                scores[fold] = round(tm, 4)
+                if cb is None or tm > cb[0]:
+                    cb = (tm, rmsd, aln, fold)
+            if cb is None:
                 continue
-            scores[fold] = tm
-            if tm > best_tm:
-                best_fold, best_tm, best_rmsd, best_aln = fold, tm, rmsd, aln
+            if best is None or cb[0] > best[0]:
+                best = (*cb, chain_id, clen, scores)
+            if best[0] >= CONFIDENT_TM:   # confident match found; no need for more chains
+                break
 
-        if best_fold is None:
+        if best is None:
             print(f"  [{k}/{len(pdb_ids)}] {pdb}: no alignment produced — skipped")
             continue
 
+        best_tm, best_rmsd, best_aln, best_fold, chain_used, chain_len, scores = best
         confident = best_tm >= CONFIDENT_TM
         rows.append({
             "PDB ID": pdb,
@@ -276,14 +310,15 @@ def main():
             "TM_SCORE_TO_FOLD_REF": round(best_tm, 4),
             "RMSD_TO_FOLD_REF": best_rmsd,
             "ALIGNED_LENGTH": best_aln,
-            "CHAIN_LENGTH": n,
+            "CHAIN_USED": chain_used,
+            "CHAIN_LENGTH": chain_len,
             "FOLD_CONFIDENT": confident,
         })
-        wide_rows.append({"PDB ID": pdb, **{f: round(v, 4) for f, v in scores.items()}})
+        wide_rows.append({"PDB ID": pdb, **scores})
 
         flag = "" if confident else "  (low confidence)"
         print(f"  [{k}/{len(pdb_ids)}] {pdb}: {best_fold} "
-              f"TM={best_tm:.3f} RMSD={best_rmsd}{flag}")
+              f"TM={best_tm:.3f} RMSD={best_rmsd} chain={chain_used}{flag}")
 
         if k % 25 == 0:   # checkpoint so a long run is resumable / inspectable
             pd.DataFrame(rows).to_csv(OUT_CSV, index=False)

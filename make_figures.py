@@ -672,6 +672,11 @@ def fig_slc_debut_timeline(df):
             ax.text(spine_x - 0.016, y0, str(y), ha="right", va="center",
                     fontsize=9.5, color=INK if has else FAINT,
                     weight="bold" if has else "regular")
+        # Count of SLCs first solved that year, in the gutter next to the names
+        # (this folds in the old "new SLCs per year" bar chart).
+        if has:
+            ax.text(spine_x + 0.030, y0, f"{len(genes)}", ha="left", va="center",
+                    fontsize=8.5, color=ACCENT, weight="bold")
         for i, (name, otype) in enumerate(genes):
             r, c = divmod(i, COLS)
             ax.text(name_x0 + c * colw, y0 + r * ROW_H, name, ha="left", va="center",
@@ -689,7 +694,8 @@ def fig_slc_debut_timeline(df):
 
     with_chrome(fig, ax,
         "Timeline of First-Solved SLC Transporters",
-        f"Each SLC at its structural debut, colored by organism type  ·  {len(debut)} distinct SLCs")
+        f"Each SLC at its structural debut, colored by organism type; bold number = SLCs "
+        f"first solved that year  ·  {len(debut)} distinct SLCs")
     return fig
 
 
@@ -944,55 +950,85 @@ def load_folds():
     return f
 
 
-def fig_fold_distribution(df):
-    """(A) structures per confidently-assigned structural fold; (B) TM-score to the
-    fold reference per fold, showing match quality against the >=0.5 'same-fold' line.
-
-    Folds are assigned by structural alignment (US-align) of each structure's longest
-    chain against a panel of canonical fold references; a call is 'confident' at
-    TM-score >= 0.5 (the standard same-fold threshold)."""
+def _confident_folds(df):
+    """Merge fold calls onto unique PDBs and return the confident subset + the
+    ordered (fold, label, colour) triples shared by the fold figures."""
     folds = load_folds()
     u = df.drop_duplicates("PDB ID").copy()
     u["PDB ID"] = u["PDB ID"].astype(str).str.upper()
     m = u.merge(folds, on="PDB ID", how="inner")
     conf = m[m["FOLD_CONFIDENT"] == True].copy()              # noqa: E712 (pandas mask)
-
     counts = conf["FOLD"].value_counts()
     order = list(counts.index)
+    colors = qual_colors(len(order))
+    return conf, counts, order, colors
+
+
+def fig_fold_distribution(df):
+    """Structural-fold distribution as a horizontal bar chart and a matching donut,
+    sharing one per-fold colour scheme: the bars give absolute counts and name each
+    fold, the donut gives the proportional split and overall total. Folds are assigned
+    by US-align structural alignment against canonical references (TM-score >= 0.5)."""
+    conf, counts, order, colors = _confident_folds(df)
     labels = [FOLD_LABELS.get(f, f) for f in order]
 
-    fig, (axA, axB) = plt.subplots(1, 2, figsize=(7.4, 4.0),
-                                   gridspec_kw={"width_ratios": [1.0, 1.15]})
+    fig, (axBar, axPie) = plt.subplots(1, 2, figsize=(7.4, 3.9),
+                                       gridspec_kw={"width_ratios": [1.05, 0.95]})
 
-    # Panel A: count per fold (largest on top), leading fold accented.
-    hbar(axA, labels, counts.values, highlight_n=1, fontsize=8, value_fontsize=8)
-    axA.set_xlabel("Structures", fontsize=8.5)
-    panel_title(axA, "Structures per fold")
-    panel_tag(axA, "A")
-
-    # Panel B: TM-score distribution per fold (same order), 0.5 reference line.
+    # Left: horizontal bars, one colour per fold (the donut shares these colours,
+    # so the bar labels double as the donut's key — no separate legend needed).
     y = np.arange(len(order))[::-1]
-    for yi, f in zip(y, order):
-        vals = conf.loc[conf["FOLD"] == f, "TM_SCORE_TO_FOLD_REF"].to_numpy(dtype=float)
-        jit = yi + (np.random.RandomState(0).rand(len(vals)) - 0.5) * 0.5
-        axB.scatter(vals, jit, s=9, color=PRIMARY, alpha=0.45, edgecolor="none", zorder=3)
-        axB.scatter([np.median(vals)], [yi], s=42, color=ACCENT, zorder=4,
-                    edgecolor="white", linewidth=0.8)
-    axB.axvline(0.5, color=MUTED, linestyle="--", linewidth=0.9, zorder=2)
-    axB.text(0.5, len(order) - 0.35, "same-fold\nthreshold", fontsize=6.5,
-             color=MUTED, ha="center", va="top")
-    axB.set_yticks(y)
-    axB.set_yticklabels(labels, fontsize=8)
-    axB.set_xlim(0.4, 1.02)
-    axB.set_ylim(-0.7, len(order) - 0.3)
-    axB.set_xlabel("TM-score to fold reference", fontsize=8.5)
-    axB.tick_params(length=0)
-    for sp in ("top", "right"):
-        axB.spines[sp].set_visible(False)
-    panel_title(axB, "Match quality (orange = median)")
-    panel_tag(axB, "B")
+    vmax = counts.values.max()
+    axBar.barh(y, counts.values, color=colors, height=0.74, edgecolor="none", zorder=3)
+    axBar.set_yticks(y)
+    axBar.set_yticklabels(labels, fontsize=8.5)
+    for yi, v in zip(y, counts.values):
+        axBar.text(v + vmax * 0.015, yi, str(int(v)), va="center", ha="left",
+                   fontsize=8, color=TEXT)
+    axBar.set_xlim(0, vmax * 1.15)
+    axBar.set_ylim(-0.7, len(order) - 0.3)
+    _strip_axes(axBar)
+    axBar.set_xlabel("Structures", fontsize=8.5)
+    panel_title(axBar, "Structures per fold")
 
-    fig.tight_layout(w_pad=2.5)
+    # Right: donut of the same counts/colours (in-slice percentages + centre total).
+    counts_lab = pd.Series(counts.values, index=labels)
+    donut(axPie, counts_lab, colors)
+    panel_title(axPie, "Proportional split")
+
+    fig.tight_layout(w_pad=2.0)
+    return fig
+
+
+def fig_fold_tmscore(df):
+    """Per-fold TM-score distribution (match quality) against the 0.5 same-fold line —
+    the evidence that confidently assigned structures are genuine fold members."""
+    conf, counts, order, colors = _confident_folds(df)
+    labels = [FOLD_LABELS.get(f, f) for f in order]
+
+    fig, ax = plt.subplots(figsize=(7.2, 4.0))
+    y = np.arange(len(order))[::-1]
+    rng = np.random.RandomState(0)
+    for yi, f, c in zip(y, order, colors):
+        vals = conf.loc[conf["FOLD"] == f, "TM_SCORE_TO_FOLD_REF"].to_numpy(dtype=float)
+        jit = yi + (rng.rand(len(vals)) - 0.5) * 0.55
+        ax.scatter(vals, jit, s=11, color=c, alpha=0.5, edgecolor="none", zorder=3)
+        ax.scatter([np.median(vals)], [yi], s=55, color=c, zorder=4,
+                   edgecolor="white", linewidth=1.1)
+    ax.axvline(0.5, color=MUTED, linestyle="--", linewidth=1.0, zorder=2)
+    ax.text(0.5, len(order) - 0.3, "same-fold threshold", fontsize=7.5,
+            color=MUTED, ha="center", va="top")
+    ax.set_yticks(y)
+    ax.set_yticklabels(labels, fontsize=9)
+    ax.set_xlim(0.4, 1.02)
+    ax.set_ylim(-0.7, len(order) - 0.3)
+    ax.set_xlabel("TM-score to fold reference  (large dot = per-fold median)", fontsize=9)
+    ax.tick_params(length=0)
+    for sp in ("top", "right"):
+        ax.spines[sp].set_visible(False)
+    with_chrome(fig, ax,
+        "Structural-fold match quality by TM-score",
+        "Each structure's TM-score to its assigned fold reference")
     return fig
 
 
@@ -1091,7 +1127,8 @@ def fig_timeline_distributions(df):
                  axB, "Determination method", "B",
                  legend_labels=["Cryo-EM", "X-ray", "NMR"])
 
-    # C: resolution range by year (blue sequential area)
+    # C: resolution range by year (stacked bars — clearer than an area of near-
+    # identical blue bands for reading per-year magnitudes)
     s = u.dropna(subset=["release_year"]).copy()
     s["release_year"] = s["release_year"].astype(int)
     yearsC = list(range(int(s["release_year"].min()), int(s["release_year"].max()) + 1))
@@ -1102,10 +1139,23 @@ def fig_timeline_distributions(df):
                  .reindex(columns=bin_order, fill_value=0))
     pivotC = pivotC.loc[:, (pivotC != 0).any(axis=0)]
     colorsC = seq_palette(len(pivotC.columns))
-    stacked_area(axC, yearsC, pivotC, colorsC)
+    x = np.arange(len(yearsC))
+    bottom = np.zeros(len(yearsC))
+    for col, color in zip(pivotC.columns, colorsC):
+        vals = pivotC[col].to_numpy(dtype=float)
+        axC.bar(x, vals, bottom=bottom, color=color, width=0.86,
+                edgecolor="white", linewidth=0.3, zorder=3)
+        bottom += vals
+    axC.set_xlim(-0.6, len(yearsC) - 0.4)
+    axC.set_ylim(bottom=0)
+    ticks = [i for i, y in enumerate(yearsC) if y % 5 == 0]   # sparse 5-year labels
+    axC.set_xticks(ticks)
+    axC.set_xticklabels([str(yearsC[i]) for i in ticks])
+    for sp in ("top", "right"):
+        axC.spines[sp].set_visible(False)
     axC.set_xlabel("Release year", fontsize=8.5)
     axC.set_ylabel("Structures", fontsize=8.5)
-    axC.tick_params(labelsize=8)
+    axC.tick_params(labelsize=8, length=0)
     panel_title(axC, "Resolution range")
     handlesC = [plt.Rectangle((0, 0), 1, 1, color=c) for c in colorsC]
     axC.legend(handlesC, [f"{c} Å" for c in pivotC.columns], fontsize=6.8,
@@ -1263,6 +1313,22 @@ def fig_workflow(df):
             f"structures, {n_genes} genes", ha="center", va="center",
             color=FAINT, fontsize=8)
     cur[0] -= 0.034
+    connector("Structural superposition")
+
+    # 4b. Structural fold classification (US-align / TM-score) --------------
+    h = 0.082
+    cy = cur[0] - h / 2
+    ax.add_patch(mpatches.FancyBboxPatch(
+        (cx - 0.40, cy - h / 2), 0.80, h,
+        boxstyle="round,pad=0.004,rounding_size=0.022",
+        facecolor=BOXFILL, edgecolor=SPINE, lw=1.0, zorder=3))
+    ax.text(cx, cy + 0.020, "Structural fold classification", ha="center",
+            va="center", color=INK, fontsize=11.5, weight="bold", zorder=4)
+    ax.text(cx, cy - 0.006, "US-align superposition vs canonical fold references",
+            ha="center", va="center", color=MUTED, fontsize=8.8, zorder=4)
+    ax.text(cx, cy - 0.026, "TM-score ≥ 0.5  →  assigned fold", ha="center",
+            va="center", color=OI_BLUE, fontsize=8.8, weight="bold", zorder=4)
+    cur[0] -= h
     connector("Data visualization")
 
     # 5. Visualization glyphs ----------------------------------------------
@@ -1351,7 +1417,13 @@ def figure_list():
          "~2019; the cumulative-coverage line shows that distinct-SLC coverage has "
          "broadened in step with that surge rather than just re-solving the same few "
          "transporters (panel B)."),
-        ("fig2_timeline_distributions", fig_timeline_distributions,
+        ("fig2_debut_timeline",         fig_slc_debut_timeline,
+         "Timeline of SLC transporters at their first solved structure",
+         "Each transporter is named in the year its first structure was released and "
+         "coloured by organism type, with the count of first-time debuts shown for each "
+         "year; the field broadens from a trickle of early prokaryotic-homolog structures "
+         "to a rapid recent run of first-time eukaryotic SLC structures."),
+        ("fig3_timeline_distributions", fig_timeline_distributions,
          "Timeline distributions of source, method, and resolution",
          "Eukaryotic sources have dominated every recent year and now overwhelmingly "
          "drive new depositions (panel A). The field switched techniques around 2019: "
@@ -1360,7 +1432,7 @@ def figure_list():
          "tracks that switch (panel C). Yet the very highest resolutions remain X-ray's "
          "domain — the 1–2 A band is essentially all X-ray, while cryo-EM piles "
          "into the 3–4 A range, the single most common resolution regime (panel D)."),
-        ("fig3_sources_leaders",        fig_sources_and_leaders,
+        ("fig4_sources_leaders",        fig_sources_and_leaders,
          "Source organisms and group leaders in SLC structural biology",
          "Homo sapiens is the source for two-thirds of all structures, an order of "
          "magnitude ahead of any other organism, with the remainder spread across model "
@@ -1368,36 +1440,30 @@ def figure_list():
          "eukaryotic vs ~21% prokaryotic). The field is also concentrated by laboratory: "
          "a small number of senior authors — led by Gouaux, Boudker, and Lee — "
          "account for a large share of the output (panel B)."),
-        ("fig4_family",                 fig_family_pie,
+        ("fig5_family",                 fig_family_pie,
          "Distribution of SLC structures across SLC families",
          "Structural effort is heavily skewed toward a few families: SLC6 (~15%) and "
          "SLC1 (~13%) alone account for roughly a quarter of all structures, and the ten "
          "largest families cover about two-thirds, leaving a long tail of ~27 sparsely "
          "characterized families pooled as 'Other'."),
-        ("fig5_oligomeric",             fig_oligomeric_pie,
+        ("fig6_oligomeric",             fig_oligomeric_pie,
          "Distribution of SLC structures by oligomeric state",
          "Most SLC structures are small assemblies: monomers (38%) and dimers (34%) "
          "together make up roughly three-quarters of the dataset, with trimers (19%) and "
          "tetramers (7%) making up most of the rest and higher-order states rare."),
-        ("fig6_folds",                  fig_fold_distribution,
-         "Structural fold classification of SLC structures by TM-score",
-         "Classifying each structure by structural alignment (US-align) against a "
-         "panel of canonical fold references recovers the expected dominance of a few "
-         "folds: the LeuT/APC and MFS folds together account for the largest share of "
-         "confidently assigned structures, consistent with these being the most "
-         "populous SLC folds, while most assignments sit well above the TM-score 0.5 "
-         "same-fold threshold."),
-        ("S1_debut_timeline",           fig_slc_debut_timeline,
-         "Timeline of each SLC transporter at its first solved structure",
-         "Naming each transporter at its structural debut shows the field broadening "
-         "from a trickle of early prokaryotic-homolog structures to a rapid recent run "
-         "of first-time eukaryotic SLC structures."),
-        ("S2_new_slcs",                 fig_new_slcs_by_year,
-         "Number of SLC transporters solved for the first time per year",
-         "First-time debuts per year confirm that most distinct SLCs were solved for "
-         "the first time recently; read alongside Fig 1B, which shows the same debuts "
-         "accumulating into broad coverage."),
-        ("S3_all_slcs",                 fig_all_slcs,
+        ("fig7_folds",                  fig_fold_distribution,
+         "Structural fold classification of SLC structures",
+         "Classifying each structure by US-align structural alignment against a panel of "
+         "canonical fold references recovers the expected dominance of a few folds: the "
+         "LeuT/APC and MFS folds together account for the largest share of confidently "
+         "assigned structures (TM-score >= 0.5), shown as both per-fold counts (bars) and "
+         "the proportional split (donut)."),
+        ("S1_fold_tmscore",             fig_fold_tmscore,
+         "Structural-fold match quality by TM-score",
+         "The TM-score of every structure to its assigned fold reference; most sit well "
+         "above the 0.5 same-fold threshold (per-fold medians highlighted), confirming "
+         "that confident assignments are genuine fold members rather than marginal matches."),
+        ("S2_all_slcs",                 fig_all_slcs,
          "Structure counts for all SLC transporters in the dataset",
          "The full per-transporter ranking makes the skew explicit: a few transporters "
          "carry dozens of structures while the majority have only a handful, a "
