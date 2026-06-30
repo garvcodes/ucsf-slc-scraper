@@ -39,7 +39,7 @@ SLC_PROKARYOTIC_HOMOLOGS = [
     {"slc": "SLC1A1", "label": "GltPh (Pyrococcus horikoshii)",
      "search": ["gltPh", "PH1295", "O59010"],
      "organism_filter": "Pyrococcus",
-     "pdbs": ["2NWL", "2NWW", "2NWX", "4OYF", "5DWX"]},
+     "pdbs": ["2NWL", "2NWW", "2NWX", "4OYF"]},
     {"slc": "SLC1A1", "label": "GltTk (Thermococcus kodakarensis)",
      "search": ["TK0986"],
      "organism_filter": "Thermococcus",
