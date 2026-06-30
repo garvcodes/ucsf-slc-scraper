@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+
+# superimpose.py: downloaded structure cache + the compiled US-align binary
+# (platform-specific — build it per the superimpose.py header, do not commit)
+cif_cache/
+USalign
+USalign.exe
+
+# Local Claude settings
+.claude/settings.local.json

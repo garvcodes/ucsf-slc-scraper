@@ -1,0 +1,90 @@
+gene,approved,hgnc_name,slc_group,slc_alias,is_slc_symbol,n_structures
+CTNS,CTNS,"cystinosin, lysosomal cystine transporter",Solute carrier family 66,SLC66A4,False,6
+MAGT1,MAGT1,magnesium transporter 1,Solute carrier family 58,SLC58A1,False,1
+MFSD10,,,,,False,0
+MFSD2A,MFSD2A,"MFSD2 lysolipid transporter A, lysophospholipid",Solute carrier family 59,SLC59A1,False,3
+NPC1,NPC1,NPC intracellular cholesterol transporter 1,Solute carrier family 65,SLC65A1,False,18
+NPC1L1,NPC1L1,NPC1 like intracellular cholesterol transporter 1,Solute carrier family 65,SLC65A2,False,9
+RHAG,RHAG,Rh associated glycoprotein,Solute carrier family 42,SLC42A1,False,2
+SLC10A1,SLC10A1,solute carrier family 10 member 1,Solute carrier family 10,,True,8
+SLC11A1,SLC11A1,solute carrier family 11 member 1,Solute carrier family 11,,True,23
+SLC11A2,SLC11A2,solute carrier family 11 member 2,Solute carrier family 11,,True,5
+SLC12A2,SLC12A2,solute carrier family 12 member 2,Solute carrier family 12,,True,21
+SLC12A4,SLC12A4,solute carrier family 12 member 4,Solute carrier family 12,,True,8
+SLC12A5,SLC12A5,solute carrier family 12 member 5,Solute carrier family 12,,True,2
+SLC12A7,SLC12A7,solute carrier family 12 member 7,Solute carrier family 12,,True,2
+SLC13A1,SLC13A1,solute carrier family 13 member 1,Solute carrier family 13,,True,9
+SLC13A2,SLC13A2,solute carrier family 13 member 2,Solute carrier family 13,,True,3
+SLC13A5,SLC13A5,solute carrier family 13 member 5,Solute carrier family 13,,True,12
+SLC14A1,SLC14A1,solute carrier family 14 member 1 (Kidd blood group),Solute carrier family 14,,True,4
+SLC15A1,SLC15A1,solute carrier family 15 member 1,Solute carrier family 15,,True,14
+SLC15A2,SLC15A2,solute carrier family 15 member 2,Solute carrier family 15,,True,6
+SLC15A4,SLC15A4,solute carrier family 15 member 4,Solute carrier family 15,,True,5
+SLC16A1,SLC16A1,solute carrier family 16 member 1,Solute carrier family 16,,True,0
+SLC16A7,SLC16A7,solute carrier family 16 member 7,Solute carrier family 16,,True,0
+SLC17A5,SLC17A5,solute carrier family 17 member 5,Solute carrier family 17,,True,0
+SLC18A1,SLC18A1,solute carrier family 18 member A1,Solute carrier family 18,,True,0
+SLC18A2,SLC18A2,solute carrier family 18 member A2,Solute carrier family 18,,True,0
+SLC19A1,SLC19A1,solute carrier family 19 member 1,Solute carrier family 19,,True,0
+SLC1A1,SLC1A1,solute carrier family 1 member 1,Solute carrier family 1,,True,53
+SLC1A2,SLC1A2,solute carrier family 1 member 2,Solute carrier family 1,,True,0
+SLC1A3,SLC1A3,solute carrier family 1 member 3,Solute carrier family 1,,True,0
+SLC1A4,SLC1A4,solute carrier family 1 member 4,Solute carrier family 1,,True,0
+SLC1A5,SLC1A5,solute carrier family 1 member 5,Solute carrier family 1,,True,0
+SLC22A11,SLC22A11,solute carrier family 22 member 11,Solute carrier family 22,,True,1
+SLC22A12,SLC22A12,solute carrier family 22 member 12,Solute carrier family 22,,True,33
+SLC22A3,SLC22A3,solute carrier family 22 member 3,Solute carrier family 22,,True,3
+SLC22A6,SLC22A6,solute carrier family 22 member 6,Solute carrier family 22,,True,15
+SLC25A12,SLC25A12,solute carrier family 25 member 12,Solute carrier family 25,,True,2
+SLC25A13,SLC25A13,solute carrier family 25 member 13,Solute carrier family 25,,True,1
+SLC25A24,SLC25A24,solute carrier family 25 member 24,Solute carrier family 25,,True,3
+SLC26A2,SLC26A2,solute carrier family 26 member 2,Solute carrier family 26,,True,4
+SLC26A3,SLC26A3,solute carrier family 26 member 3,Solute carrier family 26,,True,0
+SLC26A4,SLC26A4,solute carrier family 26 member 4,Solute carrier family 26,,True,9
+SLC26A5,SLC26A5,solute carrier family 26 member 5,Solute carrier family 26,,True,19
+SLC26A9,SLC26A9,solute carrier family 26 member 9,Solute carrier family 26,,True,3
+SLC28A3,SLC28A3,solute carrier family 28 member 3,Solute carrier family 28,,True,21
+SLC29A1,SLC29A1,solute carrier family 29 member 1 (Augustine blood group),Solute carrier family 29,,True,3
+SLC2A1,SLC2A1,solute carrier family 2 member 1,Solute carrier family 2,,True,12
+SLC2A3,SLC2A3,solute carrier family 2 member 3,Solute carrier family 2,,True,6
+SLC2A4,SLC2A4,solute carrier family 2 member 4,Solute carrier family 2,,True,2
+SLC2A5,SLC2A5,solute carrier family 2 member 5,Solute carrier family 2,,True,2
+SLC2A9,SLC2A9,solute carrier family 2 member 9,Solute carrier family 2,,True,7
+SLC30A8,SLC30A8,solute carrier family 30 member 8,Solute carrier family 30,,True,6
+SLC30A9,SLC30A9,solute carrier family 30 member 9,Solute carrier family 30,,True,0
+SLC31A1,SLC31A1,solute carrier family 31 member 1,Solute carrier family 31,,True,0
+SLC35A1,SLC35A1,solute carrier family 35 member A1,Solute carrier family 35,,True,4
+SLC38A9,SLC38A9,solute carrier family 38 member 9,Solute carrier family 38,,True,5
+SLC3A1,SLC3A1,solute carrier family 3 member 1,Solute carrier family 3,,True,7
+SLC3A2,SLC3A2,solute carrier family 3 member 2,Solute carrier family 3,,True,44
+SLC40A1,SLC40A1,solute carrier family 40 member 1,Solute carrier family 40,SLC11A3,True,14
+SLC44A1,SLC44A1,solute carrier family 44 member 1,Solute carrier family 44,,True,2
+SLC4A1,SLC4A1,solute carrier family 4 member 1 (Diego blood group),Solute carrier family 4,,True,11
+SLC4A11,SLC4A11,solute carrier family 4 member 11,Solute carrier family 4,,True,4
+SLC4A4,SLC4A4,solute carrier family 4 member 4,Solute carrier family 4,SLC4A5,True,1
+SLC4A8,SLC4A8,solute carrier family 4 member 8,Solute carrier family 4,,True,1
+SLC5A1,SLC5A1,solute carrier family 5 member 1,Solute carrier family 5,,True,4
+SLC5A2,SLC5A2,solute carrier family 5 member 2,Solute carrier family 5,,True,12
+SLC5A5,SLC5A5,solute carrier family 5 member 5,Solute carrier family 5,,True,3
+SLC5A7,SLC5A7,solute carrier family 5 member 7,Solute carrier family 5,,True,12
+SLC5A8,SLC5A8,solute carrier family 5 member 8,Solute carrier family 5,,True,1
+SLC6A1,SLC6A1,solute carrier family 6 member 1,Solute carrier family 6,,True,5
+SLC6A19,SLC6A19,solute carrier family 6 member 19,Solute carrier family 6,,True,11
+SLC6A20,SLC6A20,solute carrier family 6 member 20,Solute carrier family 6,,True,8
+SLC6A3,SLC6A3,solute carrier family 6 member 3,Solute carrier family 6,,True,7
+SLC6A4,SLC6A4,solute carrier family 6 member 4,Solute carrier family 6,,True,105
+SLC6A9,SLC6A9,solute carrier family 6 member 9,Solute carrier family 6,,True,9
+SLC7A10,SLC7A10,solute carrier family 7 member 10,Solute carrier family 7,,True,4
+SLC7A11,SLC7A11,solute carrier family 7 member 11,Solute carrier family 7,,True,11
+SLC7A5,SLC7A5,solute carrier family 7 member 5,Solute carrier family 7,,True,25
+SLC7A8,SLC7A8,solute carrier family 7 member 8,Solute carrier family 7,,True,4
+SLC7A9,SLC7A9,solute carrier family 7 member 9,Solute carrier family 7,,True,6
+SLC9A1,SLC9A1,solute carrier family 9 member A1,Solute carrier family 9,,True,10
+SLC9A3,SLC9A3,solute carrier family 9 member A3,Solute carrier family 9,,True,1
+SLC9B2,SLC9B2,solute carrier family 9 member B2,Solute carrier family 9,,True,2
+SLCO1B1,SLCO1B1,solute carrier organic anion transporter family member 1B1,Solute carrier organic anion transporter family,SLC21A6,True,9
+SLCO1B3,SLCO1B3,solute carrier organic anion transporter family member 1B3,Solute carrier organic anion transporter family,SLC21A8,True,1
+SV2A,SV2A,synaptic vesicle glycoprotein 2A,Solute carrier family 22,SLC22B1,False,18
+SV2C,SV2C,synaptic vesicle glycoprotein 2C,Solute carrier family 22,SLC22B3,False,5
+TUSC3,TUSC3,tumor suppressor candidate 3,Solute carrier family 58,SLC58A2,False,4
+XPR1,XPR1,xenotropic and polytropic retrovirus receptor 1,Solute carrier family 53,SLC53A1,False,52

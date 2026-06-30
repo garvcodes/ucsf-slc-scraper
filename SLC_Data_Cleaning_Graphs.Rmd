@@ -1,0 +1,424 @@
+---
+title: "SLC_Results_Sept_25"
+output: html_document
+date: "2024-09-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Reading in data: 
+
+```{r cars}
+dt <- read.csv("/Users/MuskaanSandhu/Downloads/FINAL_FILE.csv")
+```
+
+## Doing data exploration. For some genes, there appears to be far too many structures than on the PDB database. Upon closer examination, there are repeated entries of SLC strucutres because of different molecular weights and/or two different source organisms. 
+
+```{r pressure, echo=FALSE}
+table(dt$GENE)
+table(dt$SLC_ID)
+```
+
+## Aggregating the data so that each SLC structure has one entry and for those that have multiple entries for molecular weight, gene IDs, source organisms, and expression host, they are one entry seperated by commas. 
+
+```{r}
+library(dplyr)
+
+test_dt <- dt %>%
+  group_by(merge_key) %>%
+  summarize(
+    updated_source_organism = paste(unique(Source.Organism), collapse = ", "),
+    kingdom = paste(unique(KINGDOM), collapse = ", "),
+    updated_molecular_weight = paste(unique(Molecular.Weight..Entity.), collapse = ", "),
+    expression_host = paste(unique(Expression.Host), collapse = ", "),
+    oligomeric_state = paste(unique(Oligomeric.State), collapse = ", "),
+    slc_id = paste(unique(SLC_ID), collapse = ", "),
+    gene = paste(unique(GENE), collapse = ", "),
+    structure_author = first(Structure.Author),
+    pubmed_central_id = first(PubMed.Central.ID),
+    pubmed_id = first(PubMed.ID),
+    release_date = first(Release.Date),
+    ligand = first(Ligand),
+    pdb_id = first(PDB.ID),
+    disulfide_bond = first(Disulfide.Bond.Count.per.Deposited.Model),
+    doi = first(DOI),
+    title = first(Title),
+    resolution = first(RESOLUTION),
+    xray_em = first(METHOD),
+    glycoslyation_site = first(Glycosylation.Site),
+  
+  )
+
+
+```
+
+## Checking to see which SLC gene have 25 entries: 
+```{r}
+table(test_dt$gene)
+```
+
+## Manually adding data for these for genes: SLC3A2, SLC1A5:
+
+```{r}
+
+#SLC information already exist, they just show up for another gene in the database: 
+
+test_dt[test_dt$merge_key == "7P9V", c("slc_id", "gene")] <- list("SLC7A11, SLC3A2", "SLC7A11, SLC3A2")
+test_dt[test_dt$merge_key == "8A6L", c("slc_id", "gene")] <- list("SLC7A8, SLC3A2", "SLC7A8, SLC3A2")
+test_dt[test_dt$merge_key == "8IDA", c("slc_id", "gene")] <- list("SLC7A5, SLC3A2", "SLC7A5, SLC3A2")
+test_dt[test_dt$merge_key == "8J8L", c("slc_id", "gene")] <- list("SLC7A5, SLC3A2", "SLC7A5, SLC3A2")
+test_dt[test_dt$merge_key == "8J8M", c("slc_id", "gene")] <- list("SLC7A5, SLC3A2", "SLC7A5, SLC3A2")
+test_dt[test_dt$merge_key == "6JMQ", c("slc_id", "gene")] <- list("SLC7A5, SLC3A2", "SLC7A5, SLC3A2")
+
+test_dt[test_dt$merge_key == "5LLU", c("slc_id", "gene")] <- list("SLC1A3, SLC1A5", "SLC1A3, SLC1A5")
+test_dt[test_dt$merge_key == "5LLM", c("slc_id", "gene")] <- list("SLC1A3, SLC1A5", "SLC1A3, SLC1A5")
+test_dt[test_dt$merge_key == "5LM4", c("slc_id", "gene")] <- list("SLC1A3, SLC1A5", "SLC1A3, SLC1A5")
+test_dt[test_dt$merge_key == "7AWN", c("slc_id", "gene")] <- list("SLC1A3, SLC1A5", "SLC1A3, SLC1A5")
+test_dt[test_dt$merge_key == "7AWP", c("slc_id", "gene")] <- list("SLC1A3, SLC1A5", "SLC1A3, SLC1A5")
+test_dt[test_dt$merge_key == "7AWM", c("slc_id", "gene")] <- list("SLC1A3, SLC1A5", "SLC1A3, SLC1A5")
+test_dt[test_dt$merge_key == "7AWQ", c("slc_id", "gene")] <- list("SLC1A3, SLC1A5", "SLC1A3, SLC1A5")
+
+```
+
+## Saving the edited data file to add manual entries for SLC6A4, NPC1: 
+```{r}
+
+write.csv(test_dt, "/Users/MuskaanSandhu/Downloads/manual_entry_slc.csv")
+
+
+```
+
+## Reloading in the CSV: 
+```{r}
+
+complete_dt <- read.csv("/Users/MuskaanSandhu/Desktop/sort nov 6/EDITED_SLC_GENES_SEPT_27.csv")
+complete_dt <- complete_dt[,-1] #removing unecessary column 
+
+```
+
+## Adding prokaryotic/eukaryotic classification from the KINGDOM column emitted by rcsb_scraper_api.py
+## (KINGDOM is derived from the NCBI taxonomy lineage; no manual organism list needed)
+```{r}
+table(complete_dt$kingdom)
+complete_dt$prokaryotic_eukaryotic <- dplyr::case_when(
+  grepl("Bacteria|Archaea",  complete_dt$kingdom)                 ~ "Prokaryotic",
+  grepl("Eukaryota",         complete_dt$kingdom)                 ~ "Eukaryotic",
+  grepl("Viruses",           complete_dt$kingdom)                 ~ "Virus",
+  grepl("synthetic construct", complete_dt$updated_source_organism, ignore.case = TRUE) ~ "Synthetic",
+  TRUE                                                            ~ NA_character_
+)
+```
+## Cleaning resolution:
+```{r}
+complete_dt$resolution <- sub("^(\\d+\\.?\\d*).*", "\\1", complete_dt$resolution) #removing resolution symbol
+complete_dt$resolution <- as.numeric(complete_dt$resolution) #turning the resolution numeric 
+
+breaks <- c(1,2,3,4,5,6,7,8,9)
+labels <- c("1-2","2-3","3-4","4-5","5-6","6-7", "7-8", "8-9")
+complete_dt$resolution_range_labels <- cut(complete_dt$resolution, breaks = breaks, labels = labels)
+```
+ 
+## Formating release date in years. 
+```{r}
+complete_dt$release_date <- as.Date(complete_dt$release_date, tryFormats = "%Y-%m-%d") #transforming the vector to a date
+complete_dt$release_year <- sub("-.*", "", complete_dt$release_date) #adding another column which includes just year 
+```
+
+
+# Making the graphs 
+```{r}
+library(ggplot2)
+library(ggprism)
+library(dplyr)
+```
+
+
+```{r,fig.width=10, fig.height=6}
+
+Resolution_SLCs <- complete_dt %>%
+  group_by(release_year, xray_em) %>%
+  summarize(Count = n())
+Resolution_SLCs$release_year <- as.factor(Resolution_SLCs$release_year)
+
+ggplot(Resolution_SLCs, aes(x = release_year, y = Count, fill = xray_em)) +
+  geom_bar(stat = "identity", color = "black", size=0.5) +
+  labs(title = "Counts of Structure Determination Methodologies by Year",
+       x = "Release Date Year",
+       y = "Counts of Structures") +
+  scale_fill_discrete(name = "Structure Determination Methodology") +
+  theme_prism(base_size=14) + theme(panel.grid = element_blank()) + theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.title.x = element_text(margin = margin(t = 20)))
+
+```
+
+
+```{r, fig.width=10, fig.height=6}
+Structure_Method_Resolution_Rang <- complete_dt %>% 
+  group_by(xray_em, resolution_range_labels) %>% 
+  summarize(Count = n())
+
+ggplot(na.omit(Structure_Method_Resolution_Rang), aes(x = resolution_range_labels, y = Count, fill = xray_em)) +
+  geom_bar(stat = "identity",  color = "black", size=0.3) +
+  labs(title = "Counts of Structure Resolution Range by Methodology",
+       x = "Resolution Range",
+       y = "Counts of Structures") +
+  scale_fill_discrete(name = "Methodology") +
+  theme_prism(base_size=14) + theme(panel.grid = element_blank())
+```
+
+
+```{r, fig.width=10, fig.height=6}
+
+Unique_SLCs_Per_Year <- complete_dt %>%
+  arrange(release_year) %>%
+  group_by(gene) %>%
+  filter(row_number() == 1) %>%
+  group_by(release_year) %>%
+  summarise(gene = n())
+
+Unique_SLCs_Per_Year$release_year <- as.numeric(as.character(Unique_SLCs_Per_Year$release_year))
+class(Unique_SLCs_Per_Year$release_year)
+Unique_SLCs_Per_Year$release_year <- as.factor(Unique_SLCs_Per_Year$release_year)
+
+
+ ggplot(Unique_SLCs_Per_Year, aes(x = release_year, y = gene)) +
+  geom_bar(stat = "identity", fill = "coral", color = "black", size=1) +  # Create the bar chart
+  labs(title = "Year of First Deposited PDB Structure per SLC", x = "Release Date Year", y = "Number of SLCs First Deposited That Year") +  # Add titles and labels
+  theme_prism(base_size = 14) + theme(panel.grid = element_blank())
+```
+
+
+
+```{r, fig.width=10, fig.height=6}
+Prokaryotic_Eukaryotic_SLCs <- complete_dt %>%
+  group_by(release_year, prokaryotic_eukaryotic) %>%
+  summarize(Count = n())
+
+Prokaryotic_Eukaryotic_SLCs$release_year <- as.factor(Prokaryotic_Eukaryotic_SLCs$release_year)
+
+ggplot(Prokaryotic_Eukaryotic_SLCs, aes(x = release_year, y = Count, fill = prokaryotic_eukaryotic)) +
+  geom_bar(stat = "identity", color = "black", size = 0.5) + 
+  labs(title = "Bar Chart of Prokaryotic/Eukaryotic Distribution by Year", x = "Release Date Year", y = "Counts of Structures") +  
+  theme_prism(base_size = 14) + theme(panel.grid = element_blank()) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.title.x = element_text(margin = margin(t = 20)))
+```
+
+```{r}
+Resolution_SLCs_Range <- complete_dt %>%
+  group_by(release_year, resolution_range_labels) %>%
+  summarize(Count = n())
+Resolution_SLCs_Range$Release_Date_Year <- factor(Resolution_SLCs_Range$release_year)
+
+ggplot(Resolution_SLCs_Range, aes(x = release_year, y = Count, fill = resolution_range_labels)) +
+  geom_bar(stat = "identity", color="black", size=0.5) +
+  labs(title = "Counts of Structure Resolution Range by Year",
+       x = "Release Date Year",
+       y = "Counts of Structures") +
+  scale_fill_discrete(name = "Resolution Range") +
+  theme_prism(base_size=14) + theme(panel.grid = element_blank()) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.title.x = element_text(margin = margin(t = 20)))
+resolution_graph_by_year
+```
+
+```{r}
+complete_dt$structure_author <- sub("\\['([^,]*, [^']*)'.*", "\\1", complete_dt$structure_author) #Keeping the first author in the dataframe
+```
+
+```{r, fig.width=30, fig.height=10}
+# Summarize by gene and method
+Structure_Per_SLC_Gene <- complete_dt %>%
+    group_by(gene, xray_em) %>%
+    summarize(Count_Entry_ID = n_distinct(merge_key), .groups = 'drop')
+
+# Calculate the total count per gene for sorting
+total_counts <- Structure_Per_SLC_Gene %>%
+    group_by(gene) %>%
+    summarize(Total_Count = sum(Count_Entry_ID), .groups = 'drop')
+
+# Merge total counts back for ordering
+Structure_Per_SLC_Gene <- Structure_Per_SLC_Gene %>%
+    left_join(total_counts, by = "gene")
+
+# Plot with descending order based on Total_Count
+ggplot(Structure_Per_SLC_Gene, aes(x = reorder(gene, desc(Total_Count)), y = Count_Entry_ID, fill = xray_em)) +
+    geom_bar(stat = "identity", color = "black", size = 1, position = "stack") +  # `position = "stack"` is default
+    labs(
+        title = "Counts of Structures by SLC Transporters and Method",
+        x = "SLC Transporters",
+        y = "Counts of Structures",
+        fill = "Method"
+    ) +
+    theme_prism(base_size = 14) + theme(panel.grid = element_blank()) +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 0.5),
+        axis.title.x = element_text(margin = margin(t = 20))
+    )
+```
+
+```{r, fig.width=30, fig.height=10}
+# Plot with descending order based on Total_Count
+ggplot(Structure_Per_SLC_Gene, aes(x = reorder(gene, desc(Total_Count)), y = Count_Entry_ID)) +
+    geom_bar(stat = "identity", fill = "coral", size = 0, position = "stack") +  # `position = "stack"` is default
+    labs(
+        title = "Counts of Structures by SLC Transporters",
+        x = "SLC Transporters",
+        y = "Counts of Structures",
+        fill = "Method"
+    ) +
+    theme_prism(base_size = 14) + theme(panel.grid = element_blank()) +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 0.5),
+        axis.title.x = element_text(margin = margin(t = 20))
+    )
+```
+
+
+
+```{r, fig.width=30, fig.height=20} 
+# take threshold and make it for structures that have 10+ counts ~ jan 10th note 
+Top_10_Genes <- Structure_Per_SLC_Gene %>%
+    distinct(gene, Total_Count) %>%  # Get unique gene and its total count
+    top_n(10, Total_Count)           # Select top 10 genes by Total_Count
+
+# Filter Structure_Per_SLC_Gene for these top 10 genes
+Top_10_Structure_Per_SLC_Gene <- Structure_Per_SLC_Gene %>%
+    filter(gene %in% Top_10_Genes$gene)
+
+# Plot only the top 10 genes
+ggplot(Top_10_Structure_Per_SLC_Gene, aes(x = reorder(gene, desc(Total_Count)), y = Count_Entry_ID, fill = xray_em)) +
+    geom_bar(stat = "identity", color = "black", size = 1, position = "stack") +  # `position = "stack"` is default
+    labs(
+        title = "Counts of Structures by Top 10 SLC Transporters and Method",
+        x = "Top 10 SLC Transporters",
+        y = "Counts of Structures",
+        fill = "Method"
+    ) +
+    theme_prism(base_size = 35) + theme(panel.grid = element_blank()) +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 0.5),
+        axis.title.x = element_text(margin = margin(t = 20))
+    )
+```
+
+## TOP 10 GENES FOR SLC STRUCTURES W/O METHODS
+```{r, fig.width=30, fig.height=20}
+# Plot only the top 10 genes without the method fill 
+ggplot(Top_10_Structure_Per_SLC_Gene, aes(x = reorder(gene, desc(Total_Count)), y = Count_Entry_ID)) +
+    geom_bar(stat = "identity", fill = "coral", color = "black", size=0) +
+    labs(
+        title = "Counts of Structures by Top 10 SLC Transporters",
+        x = "Top 10 SLC Transporters",
+        y = "Counts of Structures",
+    ) +
+    theme_prism(base_size = 35) + theme(panel.grid = element_blank()) +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 0.5),
+        axis.title.x = element_text(margin = margin(t = 20))
+    )
+```
+
+
+```{r, fig.width=35, fig.height=20}
+complete_dt <- complete_dt %>%
+  mutate(
+    first_author = str_extract(structure_author, "^([^,]+,\\s+[A-Za-z]+(?:\\.[A-Za-z]+)*)")  # Extract the first author
+  ) %>%
+  mutate(
+    first_author = gsub(",\\s+", ", ", first_author)  # Clean the spacing if needed
+  )
+
+
+
+library(forcats)  # For factor reordering
+
+Structure_Author_Count <- complete_dt %>%
+  group_by(first_author) %>%
+  summarise(Structures_Published = n_distinct(merge_key)) %>%
+  ungroup() %>%
+  mutate(first_author = fct_reorder(first_author, Structures_Published, .desc = TRUE))
+
+ggplot(Structure_Author_Count, aes(x = first_author, y = Structures_Published)) +
+  geom_bar(stat = "identity", fill = "darkturquoise") +  # Create the bar chart
+  labs(title = "Bar Chart of Unique SLC Structures Discovered by Author", 
+       x = "Authors", 
+       y = "Counts of Structures") +  # Add titles and labels
+  theme_prism(base_size = 14) + theme(panel.grid = element_blank()) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 0.5))
+
+```
+
+## TOP 10 AUTHOR GRAPH
+```{r}
+
+
+# Filter to retain only the top 10 authors
+Top_Authors <- Structure_Author_Count %>%
+  top_n(10, Structures_Published) %>%
+  arrange(desc(Structures_Published))
+
+# Create the bar chart for the top 10 authors
+ggplot(Top_Authors, aes(x = first_author, y = Structures_Published)) +
+  geom_bar(stat = "identity", fill = "darkturquoise") +
+  labs(
+    title = "Top 10 Authors by Unique SLC Structures Published",
+    x = "Authors",
+    y = "Counts of Structures"
+  ) +
+  theme_prism(base_size = 14) + theme(panel.grid = element_blank()) +
+  theme(
+    axis.text.x = element_text(angle = 35, hjust = 0.5)
+  )
+
+```
+
+
+
+
+```{r, fig.width=35, fig.height=20}
+library(stringr)
+source_organims <- complete_dt %>%
+  mutate(first_source = str_extract(updated_source_organism, "^[^,]+")) %>%
+  group_by(first_source) %>%
+  summarise(count = n()) %>%
+  ungroup()
+
+ggplot(source_organims, aes(x = reorder(first_source, count, decreasing=TRUE), y = count)) +
+  geom_bar(stat = "identity", fill = "darkturquoise") +
+  labs(title = "Frequency of First Source Organisms",
+       x = "Source Organism",
+       y = "Count") +
+  theme_prism(base_size = 14) + theme(panel.grid = element_blank()) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 0.5))
+
+#increase font size for this one; look at additional literature to determine which source organisms to account for 
+
+```
+ 
+```{r, fig.width=15, fig.height=10}
+library(forcats)
+# Select the top 5 source organisms by count
+top_5_source_organisms <- source_organims %>%
+  top_n(10, wt = count)
+
+# Reorder the factor levels of 'first_source' in ascending order of 'count'
+top_5_source_organisms <- top_5_source_organisms %>%
+  mutate(first_source = fct_reorder(first_source, count, .desc = TRUE))
+
+# Plot the top 5 source organisms
+ggplot(top_5_source_organisms, aes(x = first_source, y = count)) +
+  geom_bar(stat = "identity", fill = "darkturquoise") +
+  labs(title = "Top 10 Source Organisms by Frequency",
+       x = "Source Organism",
+       y = "Count") +
+  theme_prism(base_size = 20) + theme(panel.grid = element_blank()) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 0.6))
+```
+ 
+ 
